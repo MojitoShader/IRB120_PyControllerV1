@@ -11,9 +11,9 @@
 !   - Send the ASCII string "ROUTINE2" to trigger `Routine2`.
 !
 ! Behavior:
-!   - Accepts a client, reads one command, executes the matching
-!     routine, closes the client socket, and waits for the next
-!     connection. Unknown commands are reported via TPWrite.
+!   - Accepts a client and keeps the connection open to process
+!     multiple commands until the client disconnects or sends
+!     "CLOSE". Unknown commands are reported via TPWrite.
 !
 ! Notes:
 !   - Intended for testing/demonstration. Add authentication and
@@ -33,28 +33,40 @@ MODULE RemoteControl
         WHILE TRUE DO
             SocketAccept listenSock, clientSock;
             TPWrite "Client verbunden.";
-            SocketReceive clientSock \Str:=cmdStr;
-            TPWrite "Empfange: " + cmdStr;
+            cmdStr := "";
 
-            IF cmdStr = "ROUTINE1" THEN
-                Routine1;
-            ELSEIF cmdStr = "ROUTINE2" THEN
-                Routine2;
-            ELSE
-                TPWrite "Unbekannter Befehl.";
-            ENDIF
+            WHILE TRUE DO
+                SocketReceive clientSock \Str:=cmdStr;
+                IF cmdStr = "" THEN
+                    TPWrite "Keine Daten erhalten - Client vermutlich getrennt.";
+                    EXIT;
+                ENDIF
+                TPWrite "Empfange: " + cmdStr;
+
+                IF cmdStr = "ROUTINE1" THEN
+                    Routine1;
+                ELSEIF cmdStr = "ROUTINE2" THEN
+                    Routine2;
+                ELSEIF cmdStr = "CLOSE" THEN
+                    TPWrite "Client fordert Trennung an.";
+                    EXIT;
+                ELSE
+                    TPWrite "Unbekannter Befehl.";
+                ENDIF
+
+                cmdStr := "";
+            ENDWHILE
 
             SocketClose clientSock;
-            TPWrite "Verbindung getrennt.";
-            cmdStr := "";
+            TPWrite "Verbindung getrennt. Warte auf neuen Client.";
         ENDWHILE
     ENDPROC
 
     PROC Routine1()
-        TPWrite "Routine1 wurde ausgeführt.";
+        TPWrite "Routine1 wurde ausgefuehrt.";
     ENDPROC
 
     PROC Routine2()
-        TPWrite "Routine2 wurde ausgeführt.";
+        TPWrite "Routine2 wurde ausgefuehrt.";
     ENDPROC
 ENDMODULE
